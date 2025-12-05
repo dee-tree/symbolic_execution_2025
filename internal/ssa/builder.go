@@ -4,7 +4,9 @@ package ssa
 import (
 	"go/token"
 
+	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 // Builder отвечает за построение SSA из исходного кода Go
@@ -36,5 +38,27 @@ func (b *Builder) ParseAndBuildSSA(source string, funcName string) (*ssa.Functio
 	// - Используйте ssautil.CreateProgram для создания SSA
 	// - Найдите функцию в SSA программе
 
-	panic("не реализовано")
+	var cfg = packages.Config{
+		Fset: b.fset,
+		Mode: packages.NeedSyntax | packages.NeedTypes | packages.NeedDeps | packages.NeedTypesInfo,
+		Overlay: map[string][]byte{
+			"main.go": []byte(source),
+		}}
+
+	pkgs, err := packages.Load(&cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	ssaprg, ssapkgs := ssautil.Packages(pkgs, ssa.SanityCheckFunctions)
+	ssaprg.Build()
+
+	for _, pkg := range ssapkgs {
+		fun := pkg.Func(funcName)
+		if fun != nil {
+			return fun, nil
+		}
+	}
+
+	return nil, nil
 }

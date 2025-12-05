@@ -41,3 +41,9 @@ homework1/
 ## Полезные ресурсы
 - [golang.org/x/tools/go/ssa](https://pkg.go.dev/golang.org/x/tools/go/ssa)
 - [SSA форма в компиляторах](https://en.wikipedia.org/wiki/Static_single_assignment_form)
+
+# Run note:
+
+Put Z3 binary, libraries, headers in corresponding variables:
+- `CGO_CFLAGS=-I<path-to-z3>/include`
+- `CGO_LDFLAGS=-L<path-to-z3>/bin`
