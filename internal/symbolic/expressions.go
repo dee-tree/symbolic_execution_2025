@@ -56,7 +56,7 @@ func NewIntConstant(value int64) *IntConstant {
 
 // Type возвращает тип константы
 func (ic *IntConstant) Type() ExpressionType {
-	return IntType
+	return ExpressionType{Kind: IntType}
 }
 
 // String возвращает строковое представление константы
@@ -81,7 +81,7 @@ func NewBoolConstant(value bool) *BoolConstant {
 
 // Type возвращает тип константы
 func (bc *BoolConstant) Type() ExpressionType {
-	return BoolType
+	return ExpressionType{Kind: BoolType}
 }
 
 // String возвращает строковое представление константы
@@ -105,24 +105,45 @@ type BinaryOperation struct {
 
 // NewBinaryOperation создаёт новую бинарную операцию
 func NewBinaryOperation(left, right SymbolicExpression, op BinaryOperator) *BinaryOperation {
-	// TODO: Реализовать
 	// Создать новую бинарную операцию и проверить совместимость типов
-	panic("не реализовано")
+	if left.Type() != right.Type() {
+		panic("Types mismatch for binary operation")
+	}
+
+	switch op {
+	case ADD, SUB, MUL, DIV, MOD:
+		if left.Type().Kind != IntType {
+			panic("Types mismatch for binary arithmetic operation")
+		}
+	}
+
+	return &BinaryOperation{
+		Left:     left,
+		Right:    right,
+		Operator: op,
+	}
 }
 
 // Type возвращает результирующий тип операции
 func (bo *BinaryOperation) Type() ExpressionType {
-	// TODO: Реализовать
 	// Определить результирующий тип на основе операции и типов операндов
 	// Например: int + int = int, int < int = bool
-	panic("не реализовано")
+
+	switch bo.Operator {
+	case ADD, SUB, MUL, DIV, MOD:
+		return bo.Left.Type()
+	case EQ, NE, LT, LE, GT, GE:
+		return ExpressionType{Kind: BoolType}
+	}
+
+	panic("Bad operation")
 }
 
 // String возвращает строковое представление операции
 func (bo *BinaryOperation) String() string {
-	// TODO: Реализовать
 	// Формат: "(left operator right)"
-	panic("не реализовано")
+
+	return fmt.Sprintf("(%v %v %v)", bo.Left.String(), bo.Operator.String(), bo.Right.String())
 }
 
 // Accept реализует Visitor pattern
@@ -140,23 +161,63 @@ type LogicalOperation struct {
 
 // NewLogicalOperation создаёт новую логическую операцию
 func NewLogicalOperation(operands []SymbolicExpression, op LogicalOperator) *LogicalOperation {
-	// TODO: Реализовать
 	// Создать логическую операцию и проверить типы операндов
-	panic("не реализовано")
+	for _, operand := range operands {
+		if operand.Type().Kind != BoolType {
+			panic("Bad logical operand type")
+		}
+	}
+
+	if len(operands) == 0 {
+		panic("Empty logical operands")
+	}
+
+	if op == NOT && len(operands) != 1 {
+		panic("NOT operation must have exactly one operand")
+	}
+
+	if op == IMPLIES && len(operands) != 2 {
+		panic("IMPLIES operation must have exactly two operands")
+	}
+
+	return &LogicalOperation{Operands: operands, Operator: op}
 }
 
 // Type возвращает тип логической операции (всегда bool)
 func (lo *LogicalOperation) Type() ExpressionType {
-	return BoolType
+	return ExpressionType{Kind: BoolType}
 }
 
 // String возвращает строковое представление логической операции
 func (lo *LogicalOperation) String() string {
-	// TODO: Реализовать
 	// Для NOT: "!operand"
 	// Для AND/OR: "(operand1 && operand2 && ...)"
 	// Для IMPLIES: "(operand1 => operand2)"
-	panic("не реализовано")
+
+	if lo.Operator == NOT {
+		return fmt.Sprintf("!%v", lo.Operands[0].String())
+	}
+
+	sexpr := ""
+	sop := "&&"
+
+	switch lo.Operator {
+	case OR:
+		sop = "||"
+	case IMPLIES:
+		sop = "=>"
+	}
+
+	for i, operand := range lo.Operands {
+		switch i {
+		case 0:
+			sexpr += operand.String()
+		default:
+			sexpr += fmt.Sprintf(" %v %v", sop, operand.String())
+		}
+	}
+
+	return fmt.Sprintf("(%v)", sexpr)
 }
 
 // Accept реализует Visitor pattern
@@ -182,6 +243,9 @@ const (
 	LE // меньше или равно
 	GT // больше
 	GE // больше или равно
+
+	// Array operations
+	AGET // array indexing
 )
 
 // String возвращает строковое представление оператора
@@ -209,6 +273,8 @@ func (op BinaryOperator) String() string {
 		return ">"
 	case GE:
 		return ">="
+	case AGET:
+		return "[]"
 	default:
 		return "unknown"
 	}
@@ -240,8 +306,128 @@ func (op LogicalOperator) String() string {
 	}
 }
 
+type UnaryOperator int
+
+const (
+	// NEG - arithmetic unary minus
+	NEG UnaryOperator = iota
+)
+
+func (op UnaryOperator) String() string {
+	switch op {
+	case NEG:
+		return "-"
+	default:
+		return "unknown"
+	}
+}
+
+// UnaryOperation представляет унарную операцию
+type UnaryOperation struct {
+	Expr     SymbolicExpression
+	Operator UnaryOperator
+}
+
+// NewUnaryOperation создаёт новую унарную операцию
+func NewUnaryOperation(expr SymbolicExpression, op UnaryOperator) *UnaryOperation {
+	// Создать новую унарную операцию и проверить совместимость типов
+	if expr.Type().Kind != IntType {
+		panic("Types mismatch for unary operation")
+	}
+
+	return &UnaryOperation{
+		Expr:     expr,
+		Operator: op,
+	}
+}
+
+// Type возвращает результирующий тип операции
+func (uo *UnaryOperation) Type() ExpressionType {
+	// Определить результирующий тип на основе операции и типа операнда
+
+	switch uo.Operator {
+	case NEG:
+		return ExpressionType{Kind: IntType}
+	}
+
+	panic("Bad operation")
+}
+
+// String возвращает строковое представление операции
+func (uo *UnaryOperation) String() string {
+	// Формат: "(operator expr)"
+
+	return fmt.Sprintf("(%v %v)", uo.Expr.String(), uo.Operator.String())
+}
+
+// Accept реализует Visitor pattern
+func (uo *UnaryOperation) Accept(visitor Visitor) interface{} {
+	return visitor.VisitUnaryOperation(uo)
+}
+
+type TernaryOperator int
+
+const (
+	IFELSE TernaryOperator = iota
+)
+
+func (op TernaryOperator) String() string {
+	switch op {
+	case IFELSE:
+		return "?"
+	default:
+		panic("unknown ternary operator")
+	}
+}
+
+type TernaryOperation struct {
+	// Better to call like "expr1", "expr2", "expr3", but since we don't have other ternary operators - this naming appears
+	Condition SymbolicExpression
+	Then      SymbolicExpression
+	Else      SymbolicExpression
+	Operator  TernaryOperator
+}
+
+func NewTernaryOperation(condition SymbolicExpression, then SymbolicExpression, els SymbolicExpression, operator TernaryOperator) *TernaryOperation {
+	if condition.Type().Kind != BoolType {
+		panic("Types mismatch for if-condition")
+	}
+	if then.Type().Kind != els.Type().Kind {
+		panic("Types mismatch for then/else branches")
+	}
+
+	return &TernaryOperation{
+		Condition: condition,
+		Then:      then,
+		Else:      els,
+		Operator:  operator,
+	}
+}
+
+func (op *TernaryOperation) Type() ExpressionType {
+	switch op.Operator {
+	case IFELSE:
+		return op.Then.Type()
+	default:
+		panic("Bad operation")
+	}
+}
+
+func (op *TernaryOperation) String() string {
+	switch op.Operator {
+	case IFELSE:
+		return fmt.Sprintf("(if (%v) %v else %v)", op.Condition.String(), op.Then.String(), op.Else.String())
+	default:
+		panic("Bad operation")
+	}
+}
+
+func (op *TernaryOperation) Accept(visitor Visitor) interface{} {
+	return visitor.VisitTernaryOperation(op)
+}
+
 // TODO: Добавьте дополнительные типы выражений по необходимости:
-// - UnaryOperation (унарные операции: -x, !x)
+// + UnaryOperation (унарные операции: -x, !x)
 // - ArrayAccess (доступ к элементам массива: arr[index])
 // - FunctionCall (вызовы функций: f(x, y))
 // - ConditionalExpression (тернарный оператор: condition ? true_expr : false_expr)

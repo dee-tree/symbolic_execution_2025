@@ -2,10 +2,14 @@
 package symbolic
 
 // ExpressionType представляет тип символьного выражения
-type ExpressionType int
+type ExpressionType struct {
+	Kind  TypeKind
+	Inner *ExpressionType
+}
+type TypeKind int
 
 const (
-	IntType ExpressionType = iota
+	IntType TypeKind = iota
 	BoolType
 	ArrayType
 	// Добавьте другие типы по необходимости
@@ -13,13 +17,13 @@ const (
 
 // String возвращает строковое представление типа
 func (et ExpressionType) String() string {
-	switch et {
+	switch et.Kind {
 	case IntType:
 		return "int"
 	case BoolType:
 		return "bool"
 	case ArrayType:
-		return "array"
+		return "array[" + et.Inner.String() + "]"
 	default:
 		return "unknown"
 	}
